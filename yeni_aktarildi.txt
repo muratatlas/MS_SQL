@@ -1,0 +1,80 @@
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+ALTER proc [dbo].[yeni_aktarildi] 
+
+as
+Begin
+
+ Declare @is_emrino int,@tarih varchar(60),@Saat varchar(60),@ArayanTelNo varchar(60),@Barkod varchar(60),@MusteriTelNo varchar(60),@arizakodu varchar(60)
+
+
+   DECLARE @status int
+DECLARE @responseText as table(responseText nvarchar(max))
+DECLARE @res as Int;
+DECLARE @url as nvarchar(1000)
+
+-- 2 - Declare Cursor
+DECLARE db_cursor CURSOR FOR 
+-- Populate the cursor with your logic
+-- * UPDATE WITH YOUR SPECIFIC CODE HERE *
+select
+ convert(int,is_emrino )
+           , tarih 
+           , saat 
+           , ArayanTelNo 
+           , Barkod 
+           , MusteriTelNo 
+           , ArizaKodu 
+		    from tablo (nolock) where iletildi=0 and tarih>dateadd(day,-3,getdate())
+
+-- Open the Cursor
+OPEN db_cursor
+
+-- 3 - Fetch the next record from the cursor
+FETCH NEXT FROM db_cursor INTO @is_emrino,@tarih ,@Saat ,@ArayanTelNo,@Barkod,@MusteriTelNo ,@arizakodu 
+
+-- Set the status for the cursor
+WHILE @@FETCH_STATUS = 0  
+ 
+BEGIN  
+	-- 4 - Begin the custom business logic
+	-- * UPDATE WITH YOUR SPECIFIC CODE HERE *
+	begin try
+  exec murat @is_emrino,@tarih,@saat,@ArayanTelNo,@Barkod,@MusteriTelNo,@arizakodu,'MR','ATT'                         
+
+  delete   @ResponseText
+
+set @url = 'https://link.com/acik.xml?IsEmriNo='+ltrim(rtrim(@is_emrino))
+EXEC sp_OACreate 'MSXML2.ServerXMLHTTP', @res OUT
+EXEC sp_OAMethod @res, 'open', NULL, 'GET',@url,'false'
+EXEC sp_OAMethod @res, 'send'
+EXEC sp_OAGetProperty @res, 'status', @status OUT
+INSERT INTO @ResponseText (ResponseText) EXEC sp_OAGetProperty @res, 'responseText'
+EXEC sp_OADestroy @res
+
+if (SELECT  CHARINDEX('<Durum>OK</Durum>',responseText)  FROM @responseText ) >0
+ Begin
+ update tablo set iletildi=1 where is_emrino=@is_emrino
+ End
+ End Try
+ Begin Catch
+  update tablo set iletildi=0,error=left((select responseText from @responseText),255) where is_emrino=@is_emrino
+
+ End Catch
+  
+
+	-- 5 - Fetch the next record from the cursor
+ 	FETCH NEXT FROM db_cursor INTO  @is_emrino,@tarih ,@Saat ,@ArayanTelNo,@Barkod,@MusteriTelNo ,@arizakodu 
+END 
+
+-- 6 - Close the cursor
+CLOSE db_cursor  
+DEALLOCATE db_cursor 
+-- 7 - De
+
+
+End

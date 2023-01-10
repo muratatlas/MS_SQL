@@ -1,0 +1,170 @@
+
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER proc [dbo].[yeni_aktar] 
+as
+Begin
+
+ DECLARE @soapEnvelope VARCHAR(8000)       
+      DECLARE @responseText VARCHAR(max)       
+      DECLARE @responseXml XML       
+      DECLARE @cid VARCHAR(3)       
+      DECLARE @gtm_id UNIQUEIDENTIFIER       
+      DECLARE @DsType VARCHAR(60)       
+      DECLARE @DsBarcode VARCHAR(60)       
+      DECLARE @DsSourceWarehouse VARCHAR(60)       
+      DECLARE @DsTargetWarehouse VARCHAR(60)       
+      DECLARE @DsCustomerCode VARCHAR(60)       
+      DECLARE @DsEquipmentType VARCHAR(60)       
+      DECLARE @DsPlaceInfo VARCHAR(60)       
+      DECLARE @DsModelType VARCHAR(60)       
+      DECLARE @DtMovement DATETIME       
+      DECLARE @IdRefDocument INT       
+      DECLARE @FlProtected INT       
+      DECLARE @FlPlanned INT       
+      DECLARE @DsLogo VARCHAR(60)       
+      DECLARE @DsDescription      VARCHAR(60),       
+              @DsReturnReasonCode VARCHAR(60)       
+      DECLARE @DsBondNo VARCHAR(60)       
+      DECLARE @IdWearRate VARCHAR(60)       
+      DECLARE @DsResponse VARCHAR(255)       
+      DECLARE @kod VARCHAR(60)       
+      DECLARE @bolge VARCHAR(60)       
+      DECLARE @yetkili VARCHAR(60)       
+      DECLARE @kod2 VARCHAR(60)       
+      DECLARE @islem_kodu VARCHAR(60)       
+      DECLARE @islem_suresi INT       
+      DECLARE @dakika INT       
+      DECLARE @saat INT       
+      DECLARE @dakika_str VARCHAR(2)       
+      DECLARE @saat_str VARCHAR(2)       
+      DECLARE @tarih_str VARCHAR(24)     
+   Declare @dtsaat varchar(2)  
+   Declare @dtdakika varchar(2)    
+      DECLARE @aciklama VARCHAR(60)       
+      DECLARE @isemri_rsayac INT       
+      DECLARE @sayi INT       
+      DECLARE @tanimi VARCHAR(60)       
+      DECLARE @kodu VARCHAR(60)       
+      DECLARE @seri_no VARCHAR(60)       
+      DECLARE @model VARCHAR(255)       
+      DECLARE @tesis_no2 VARCHAR(60)       
+      DECLARE @model_kodu VARCHAR(60)       
+      DECLARE @ek_kodu3 VARCHAR(60)       
+      DECLARE @garanti_bitis_tarihi DATETIME       
+      DECLARE @yil2 INT       
+      DECLARE @ay2 INT       
+      DECLARE @gun2 INT       
+      DECLARE @ay_s2 VARCHAR(2)       
+      DECLARE @gun_s2 VARCHAR(2)       
+      DECLARE @DtWarrantyExpire2 VARCHAR(60)       
+      DECLARE @durum_kodu VARCHAR(60)       
+      DECLARE @error VARCHAR(255)       
+      DECLARE @web_servis_adresi VARCHAR(255)       
+      DECLARE @durum_degisiklik_tarihi DATETIME,       
+              @DtStatusChange          VARCHAR(60)       
+      DECLARE @DsWarehouseCode VARCHAR(60)       
+      DECLARE @IdRefOrder VARCHAR(60)       
+      DECLARE @unvan VARCHAR(60)       
+      Declare @cari1 varchar(60)  
+      SET arithabort ON       
+      SET textsize 2147483647  
+
+  SET @soapEnvelope='<?xml version="1.0" encoding="UTF-8" ?>'       
+      SET @soapEnvelope=@soapEnvelope       
+                        +       
+'<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'      
+    SET @soapEnvelope=@soapEnvelope + '<soap:Body>'       
+    SET @soapEnvelope=@soapEnvelope       
+                      +       
+    '<yeniemirler xmlns="http://tempuri.org/"/>'       
+    SET @soapEnvelope=@soapEnvelope + '</soap:Body>'       
+    SET @soapEnvelope=@soapEnvelope + '</soap:Envelope>' 
+
+
+
+ EXEC httprequest       
+      'https://link.com/yeniemirler.xml',       
+      'POST',       
+      @soapEnvelope,       
+      'http://tempuri.org/CustomerTransaction',       
+      '',       
+      '',       
+      @responseText out 
+
+
+
+
+
+	  SET @responseText=Replace(@responseText,       
+                            '<?xml version="1.0" encoding="utf-8"?>', '')       
+          SET @responseText=Replace(@responseText,       
+'<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">'       
+, '')       
+    SET @responseText=Replace(@responseText, '<soap:Body>', '')       
+    SET @responseText=Replace(@responseText, '</soap:Envelope>', '')       
+    SET @responseText=Replace(@responseText, '</soap:Body>', '')       
+    SET @responseText=Replace(@responseText,       
+    '<yeniemirler xmlns="http://tempuri.org/">'       
+    , '')       
+    SET @responseText=Replace(@responseText,       
+                      '<IsEmirleri>', '')       
+    SET @responseText=Replace(@responseText,       
+                      '</IsEmirleri>', '')       
+    SET @responseText=Replace(@responseText, 'xsi:nil="true"', '')       
+    SET @responseXml = Cast(@responseText AS XML)       
+      
+    --web servisten dönen cevabı geçici tabloya aktarma               
+    SELECT *    
+	into      #temp   
+    FROM   (SELECT ws.col.value('IsEmriNumarasi[1]', 'varchar(60)')         is_emrino,       
+                   ws.col.value('OlusumTarihi[1]', 'datetime')      tarih,       
+                   ws.col.value('OlusumSaati[1]', 'varchar(60)')       
+                   saat,       
+                   ws.col.value('ArayanTelNo[1]', 'varchar(60)')       
+                   ArayanTelNo,       
+                   ws.col.value('ArayanTelNoIli[1]', 'varchar(60)')        ArayanTelNoIli,       
+                   ws.col.value('Barkod[1]', 'varchar(60)') Barkod,       
+                   ws.col.value('MusteriTelNo[1]', 'varchar(60)')            MusteriTelNo,       
+                   ws.col.value('MusteriTelNoIli[1]', 'varchar(60)')              MusteriTelNoIli,       
+                   ws.col.value('ArizaKodu[1]', 'varchar(60)')         ArizaKodu,       
+                   ws.col.value('Durum[1]', 'varchar(255)')       
+                   Durum_kodu
+                
+            FROM   @responseXml.nodes('//IsEmri') Ws(col)) AS tbl   
+			
+			
+		INSERT INTO  dbo . tablo
+           ( cid 
+           , is_emrino 
+           , tarih 
+           , saat 
+           , ArayanTelNo 
+           , ArayanTelNoIli 
+           , Barkod 
+           , MusteriTelNo 
+           , MusteriTelNoIli 
+           , ArizaKodu 
+           , Durum_kodu 
+           , iletildi,
+		   insert_datetime )
+
+		   select
+		    'PCS'
+           , is_emrino 
+           , tarih 
+           , saat 
+           , ArayanTelNo 
+           , ArayanTelNoIli 
+           , Barkod 
+           , MusteriTelNo 
+           , MusteriTelNoIli 
+           , ArizaKodu 
+           , Durum_kodu 
+           ,0,getdate() 
+		    from #temp a  where not exists (select 1 from tablo b where a.is_emrino=b.is_emrino )
+		       
+      
+	  End

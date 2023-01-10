@@ -1,0 +1,70 @@
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER proc [dbo].[islem_kapat]
+as
+Begin
+ Declare @is_emrino varchar(60),@asama varchar(60),@anket varchar(60),@sayac int
+   DECLARE @status int
+DECLARE @responseText as table(responseText nvarchar(max))
+DECLARE @res as Int;
+DECLARE @url as nvarchar(1000)
+
+-- 2 - Declare Cursor
+DECLARE db_cursor CURSOR FOR 
+-- Populate the cursor with your logic
+-- * UPDATE WITH YOUR SPECIFIC CODE HERE *
+Select top 500  Isnull(anket_yapilacak,0) anket_yapilacak,is_emri_no=IsNull(phono_is_emri_no, is_emri_no),Left(asama,1) asama,r_sayac From tablo(NOLOCK) Where Isnull(PhonoCevap,0)=0 
+     and  phono_is_emri_no>0 and left(asama,1)='3' 
+
+
+
+-- Open the Cursor
+OPEN db_cursor
+
+-- 3 - Fetch the next record from the cursor
+FETCH NEXT FROM db_cursor INTO @anket,@is_emrino ,@asama ,@sayac
+
+-- Set the status for the cursor
+WHILE @@FETCH_STATUS = 0  
+ 
+BEGIN  
+	-- 4 - Begin the custom business logic
+	-- * UPDATE WITH YOUR SPECIFIC CODE HERE *
+	delete @responseText
+set @url  = 'https://link.com/emirprocess.xml?IsEmriNo='+ltrim(rtrim(@is_emrino))+'&StatusKapama='+ltrim(rtrim(@asama))+'&DsAnket='+ltrim(rtrim(@anket))+''
+
+EXEC sp_OACreate 'MSXML2.ServerXMLHTTP', @res OUT
+
+EXEC sp_OAMethod @res, 'open', NULL, 'GET',@url,'false'
+
+EXEC sp_OAMethod @res, 'send'
+
+EXEC sp_OAGetProperty @res, 'status', @status OUT
+
+INSERT INTO @ResponseText (ResponseText) EXEC sp_OAGetProperty @res, 'responseText'
+
+EXEC sp_OADestroy @res
+
+
+
+if (SELECT
+CHARINDEX('<Durum>3</Durum>',responseText)
+
+ FROM @responseText ) >0
+ Begin
+ update tablo set kapatildi=1,kapatildi_datetime=getdate() where is_emrino=@is_emrino
+ update tablo set PhonoCevap=1 where r_sayac=@sayac
+ End
+
+  
+
+	-- 5 - Fetch the next record from the cursor
+ 	FETCH NEXT FROM db_cursor INTO  @anket,@is_emrino ,@asama ,@sayac
+END 
+
+-- 6 - Close the cursor
+CLOSE db_cursor  
+DEALLOCATE db_cursor 
+End
